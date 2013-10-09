@@ -1,0 +1,42 @@
+INFO    0001
+WARN    0011
+ERR     0111
+DEBUG   1111
+
+log(curr_level, msg_level);
+
+log(DEBUG, INFO);
+
+ 0001
+&1111
+ 0001
+
+log(WARN, DEBUG)
+ 1111
+&0011
+ 0011
+
+--
+
+INFO    1111
+WARN    0111
+ERR     0011
+DEBUG   0001
+
+log(DEBUG, INFO) == DEBUG   -> true
+
+ 1111
+&0001
+ 0001   true
+
+log(WARN, DEBUG) == WARN    -> false
+
+ 0001
+&0111
+ 0001   false
+
+log(DEBUG, INFO) == DEBUG   -> true
+
+ 1111
+&0001
+ 0001   true
