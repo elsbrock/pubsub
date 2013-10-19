@@ -17,6 +17,9 @@ struct Context {
 
 struct Client {
     int peer_fd;
+    char *identifier;
+    uint16_t keepalive;
+    time_t last_ping;
     char *inbuf;
     int inbuf_bytes;
     /* outbuf: should be a queue with enqueued msgs */
