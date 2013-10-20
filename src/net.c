@@ -29,7 +29,6 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
     static socklen_t peer_len = sizeof(peer_addr);
     int peer_sd;
     char host[NI_MAXHOST], service[NI_MAXSERV];
-    struct ev_io *peer_w = (struct ev_io*) malloc(sizeof(struct ev_io));
     int ret;
     struct Client *client;
 
@@ -57,16 +56,17 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
     else
         logmsg(LOG_ERR, "getnameinfo: %s\n", gai_strerror(ret));
 
-    client->peer_fd = peer_sd;
     client = smalloc(sizeof(struct Client));
+    client->watcher = (struct ev_io*) smalloc(sizeof(struct ev_io));
+    client->fd = peer_sd;
     client->state = S_CONNECTING;
     client->inbuf = malloc(sizeof(char) * BUF_LEN);
     client->inbuf_bytes = 0;
     LIST_INSERT_HEAD(&clients, client, entries);
     num_clients++;
 
-    ev_io_init(peer_w, peer_cb, peer_sd, EV_READ);
-    ev_io_start(EV_A_ peer_w);
+    ev_io_init(client->watcher, peer_cb, peer_sd, EV_READ);
+    ev_io_start(EV_A_ client->watcher);
 }
 
 void peer_cb(EV_P_ struct ev_io *peer_w, int revents) {
@@ -76,19 +76,20 @@ void peer_cb(EV_P_ struct ev_io *peer_w, int revents) {
     /* look up client context */
     /* XXX: use hashtable? */
     LIST_FOREACH(client, &clients, entries) {
-        if (client->peer_fd == peer_w->fd)
+        if (client->fd == client->fd)
             break;
     }
 
     assert(client != NULL);
+    assert(client->watcher->fd == client->fd);
 
     if (revents & EV_READ) {
-        if ((bytes_read = read(client->peer_fd, client->inbuf+client->inbuf_bytes,
+        if ((bytes_read = read(client->fd, client->inbuf+client->inbuf_bytes,
                         BUF_LEN-client->inbuf_bytes)) == 0) {
             logmsg(LOG_INFO, "client disconnected\n");
             num_clients--;
 
-            if ((ret = close(client->peer_fd)) != 0)
+            if ((ret = close(client->fd)) != 0)
                 logmsg(LOG_ERR, "could not close socket: %s\n", gai_strerror(ret));
 
             LIST_REMOVE(client, entries);
@@ -96,10 +97,12 @@ void peer_cb(EV_P_ struct ev_io *peer_w, int revents) {
             free(client->will_topic); /* XXX: this may not have been malloced() yet */
             free(client->will_msg);   /* XXX: this may not have been malloced() yet */
             free(client->inbuf);
+
+            ev_io_stop(EV_A_ client->watcher);
+            free(client->watcher);
+
             free(client);
 
-            ev_io_stop(EV_A_ peer_w);
-            free(peer_w);
 
             return;
         } else if (bytes_read == -1) {

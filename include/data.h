@@ -6,6 +6,8 @@
 #define PUBSUB_DATA_H
 
 #include <time.h>
+#include <ev.h>
+
 #include "queue.h"
 
 #define BUF_LEN 4096
@@ -16,7 +18,9 @@ struct Context {
 };
 
 struct Client {
-    int peer_fd;
+    /* The watcher is stored here to enable/disable EV_WRITE. */
+    struct ev_io *watcher;
+    int fd;
     char *identifier;
     uint16_t keepalive;
     time_t last_ping;
