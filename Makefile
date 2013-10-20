@@ -22,10 +22,10 @@ LDFLAGS += -lev
 
 all: pubsubd
 
-pubsubd: src/main.o src/net.o src/log.o src/sig.o src/misc.o src/mqtt.o
+pubsubd: src/main.o src/net.o src/log.o src/sig.o src/misc.o src/mqtt.o src/util.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-main.o : src/main.c src/net.c src/log.c src/sig.c src/misc.c src/mqtt.c
+main.o : src/main.c src/net.c src/log.c src/sig.c src/misc.c src/mqtt.c src/util.c
 
 clean:
 	rm -f **/*.o **/.*.swp .*.swp pubsubd
