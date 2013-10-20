@@ -1,0 +1,41 @@
+On Message Handling
+
+# OUTGOING
+## Idea A
+Outging messages are added to a queue that is specific to each client. Messages
+can be shared across clients, meaning that a pointer to the same message can be
+appended to multiple client queues. For example, if a new message is published
+to a topic that has been subscribed by several clients, this message is
+appended to the outgoing client queues of each of those clients. For each of
+these clients, the ev_io watcher will also notify on WRITE availability because
+they have subscribed at least one topic. Each time a WRITE callback of a client
+is triggered, the oldest message to be sent to this client is read from the
+client's queue and transmitted. In order to be able to allow partial
+transmissions, an outbuf_bytes counter is managed to indicate how many bytes
+have been already sent out. As soon as the number of bytes sent out equals the
+size of the message, the message is removed from the client's queue and a
+counter is decreased on the message. If the number of clients to which the
+message has been transmitted equals the number of clients to which the message
+should have been transmitted, this counter will be zero and the message can be
+free()d. In case a message could not be delivered to a client within meaningful
+time or the number of retries was too high, the client is disconnected and the
+counter is also decreased.
+
+  + the subscription tree does not need to be checked for each client
+  o messages need to be enqueued according to subscriptions as soon as a newly
+    published message is received, but this is done once for all clients.
+  - an additional queue is to be maintained per client
+  - shared messages need to be handled carefully
+
+## Idea B
+If a client is subscribed to at least one topic, subscriptions are checked each
+time a WRITE notification for this client is received. For each client, the
+last time at which the subscription has been checked is tracked, so that only
+newer messages will be delivered. If all messages newer than their last check
+time have been delivered, the last check time is updated with the current time.
+
+  + no additional queue is to be maintained per client
+  - it cannot be easily checked if new messages need to be delivered
+  - for larger subscriptions involing sub-trees, this method probably does not
+    scale good enough, because the entire subscription tree needs to be checked
+    per client
