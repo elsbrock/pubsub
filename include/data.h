@@ -24,6 +24,8 @@ struct Client {
     int inbuf_bytes;
     /* outbuf: should be a queue with enqueued msgs */
     time_t connected_at;
+    char *will_topic;
+    char *will_msg;
     enum { S_CONNECTING = 0, S_CONNECTED = 1} state;
     LIST_ENTRY(Client) entries;
 };

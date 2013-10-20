@@ -11,6 +11,7 @@
 #include "log.h"
 #include "data.h"
 #include "mqtt.h"
+#include "util.h"
 
 /* Handles a CONNECT message. Assumes that the message is complete. */
 int handle_connect(struct Client *client, int msg_length) {
@@ -27,7 +28,7 @@ int handle_connect(struct Client *client, int msg_length) {
     assert(len == 6);
     assert(strncmp(client->inbuf+walk, PROTOCOL_NAME, len) == 0);
     walk += len;
-    assert(client->inbuf[walk] == 3); /* protocol version */
+    assert(client->inbuf[walk] == PROTOCOL_VERSION); /* protocol version */
     walk++;
 
     /* connect flags */
@@ -36,7 +37,7 @@ int handle_connect(struct Client *client, int msg_length) {
     bool has_username = (flags & 0x80) == 1 << 7;
     bool has_password = (flags & 0x40) == 1 << 6;
     bool will_retain  = (flags & 0x20) == 1 << 5;
-    uint8_t will_qos  = (flags & 0x18) == 1 << 4; /* 2 bytes */
+    uint8_t will_qos  = (flags & 0x18) >> 3; /* 2 bytes */
     bool will_flag    = (flags & 0x04) == 1 << 2;
     bool clean_session = (flags & 0x02) == 1 << 1;
     /* LSB is not used */
@@ -51,5 +52,76 @@ int handle_connect(struct Client *client, int msg_length) {
 
     logmsg(LOG_DEBUG, "keepalive is %d seconds\n", client->keepalive);
 
-    return 0;
+    /* payload: client identifier */
+    len = (client->inbuf[walk] << 8) + client->inbuf[walk+1];
+    walk += 2;
+
+    /* XXX: check if character len < 23 and bail out */
+    /* XXX: check uniqueness of identifier */
+    client->identifier = smalloc(sizeof(char) * len+1);
+    logmsg(LOG_DEBUG, "client identitifer len: %d\n", len);
+    memcpy(client->identifier, client->inbuf+walk, len);
+    client->identifier[len] = '\0';
+    logmsg(LOG_DEBUG, "client identifier: %s\n", client->identifier);
+    walk += len;
+
+    if (will_flag) {
+        /* XXX: check length of topic and message */
+
+        /* payload: will topic  */
+        len = (client->inbuf[walk] << 8) + client->inbuf[walk+1];
+        walk += 2;
+        client->will_topic = smalloc(sizeof(char) * len+1);
+        memcpy(client->will_topic, client->inbuf+walk, len);
+        client->will_topic[len] = '\0';
+        walk += len;
+
+        /* payload: will message */
+        len = (client->inbuf[walk] << 8) + client->inbuf[walk+1];
+        walk += 2;
+        client->will_msg = smalloc(sizeof(char) * len+1);
+        memcpy(client->will_msg, client->inbuf+walk, len);
+        client->will_msg[len] = '\0';
+        walk += len;
+
+        logmsg(LOG_DEBUG, "will-topic: '%s', will_msg: '%s'\n", client->will_topic, client->will_msg);
+    }
+
+    char *username = NULL;
+    /* For compatibility reasons, the username flag may be set, although no
+     * username is present. Therefore, check if the username really is there.
+     */
+    if (has_username && client->inbuf_bytes > 2+/* fixed header */walk+2) {
+        len = (client->inbuf[walk] << 8) + client->inbuf[walk+1];
+        walk += 2;
+        username = smalloc(sizeof(char) * len + 1);
+        memcpy(username, client->inbuf+walk, len);
+        username[len] = '\0';
+        walk += len;
+
+        logmsg(LOG_DEBUG, "username: %s\n", username);
+    }
+
+    char *password = NULL;
+    /* For compatibility reasons, the password flag may be set, although no
+     * password is present. Therefore, check if the password really is there.
+     */
+    if (has_password && client->inbuf_bytes > 2+/* fixed header */walk+2) {
+        len = (client->inbuf[walk] << 8) + client->inbuf[walk+1];
+        walk += 2;
+        password = smalloc(sizeof(char) * len + 1);
+        memcpy(password, client->inbuf+walk, len);
+        password[len] = '\0';
+        walk += len;
+
+        logmsg(LOG_DEBUG, "password: %s\n", password);
+    }
+
+    /* XXX: check credentials */
+    if (username != NULL)
+        free(username);
+    if (password != NULL)
+        free(password);
+
+    return 1;
 }

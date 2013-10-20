@@ -20,6 +20,7 @@
 #include "data.h"
 #include "main.h"
 #include "mqtt.h"
+#include "util.h"
 
 static int read_packet(struct Client *client);
 
@@ -56,8 +57,8 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
     else
         logmsg(LOG_ERR, "getnameinfo: %s\n", gai_strerror(ret));
 
-    client = malloc(sizeof(struct Client));
     client->peer_fd = peer_sd;
+    client = smalloc(sizeof(struct Client));
     client->state = S_CONNECTING;
     client->inbuf = malloc(sizeof(char) * BUF_LEN);
     client->inbuf_bytes = 0;
@@ -91,6 +92,9 @@ void peer_cb(EV_P_ struct ev_io *peer_w, int revents) {
                 logmsg(LOG_ERR, "could not close socket: %s\n", gai_strerror(ret));
 
             LIST_REMOVE(client, entries);
+            free(client->identifier); /* XXX: this may not have been malloced() yet */
+            free(client->will_topic); /* XXX: this may not have been malloced() yet */
+            free(client->will_msg);   /* XXX: this may not have been malloced() yet */
             free(client->inbuf);
             free(client);
 
@@ -107,7 +111,11 @@ void peer_cb(EV_P_ struct ev_io *peer_w, int revents) {
 
         client->inbuf_bytes += bytes_read;
         if (client->inbuf_bytes > 2)
-            read_packet(client);
+            ret = read_packet(client);
+
+        /* XXX: free and malloc() again if msg was > 4096 */
+        if (ret)
+            client->inbuf_bytes = 0;
     }
 }
 
@@ -146,16 +154,17 @@ static int read_packet(struct Client *client) {
         return 0; /* try again later */
     }
 
+    int ret = 0;
     int msg_type = (client->inbuf[0]) & 0xF0;
     switch(msg_type) {
         case T_CONNECT:
             logmsg(LOG_DEBUG, "CONNECT from client\n");
-            handle_connect(client, msg_length);
+            ret = handle_connect(client, msg_length);
             break;
         default:
-            logmsg(LOG_DEBUG, "invalid message type\n");
+            logmsg(LOG_DEBUG, "invalid message type: 0x%x\n", msg_type);
             break;
     }
 
-    return 1;
+    return ret;
 }

@@ -25,6 +25,9 @@ void sig_cb(EV_P_ ev_signal *signal_w, int revents) {
     LIST_FOREACH(client, &clients, entries) {
         LIST_REMOVE(client, entries);
         close(client->peer_fd);
+        free(client->identifier); /* XXX: this may not have been malloced() yet */
+        free(client->will_topic); /* XXX: this may not have been malloced() yet */
+        free(client->will_msg);   /* XXX: this may not have been malloced() yet */
         free(client->inbuf);
         free(client);
     }
