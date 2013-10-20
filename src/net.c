@@ -159,6 +159,12 @@ static int read_packet(struct Client *client) {
 
     int ret = 0;
     int msg_type = (client->inbuf[0]) & 0xF0;
+    if (client->state == S_CONNECTING && msg_type != T_CONNECT) {
+        /* XXX: disconnect client */
+        logmsg(LOG_ERR, "invalid client state: expected CONNECT message but got 0x%x\n", msg_type);
+        return 0;
+    }
+
     switch(msg_type) {
         case T_CONNECT:
             logmsg(LOG_DEBUG, "CONNECT from client\n");

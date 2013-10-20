@@ -15,6 +15,7 @@
 
 /* Handles a CONNECT message. Assumes that the message is complete. */
 int handle_connect(struct Client *client, int msg_length) {
+    assert(client->state == S_CONNECTING);
     assert((client->inbuf[0] & 0xF0) >> 4 == 1); 
     assert((client->inbuf[0] & 0xF) == 0); /* DUP, QoS & Retain */
 
@@ -122,6 +123,8 @@ int handle_connect(struct Client *client, int msg_length) {
         free(username);
     if (password != NULL)
         free(password);
+
+    /* XXX: set state to S_CONNECTED as soon as reply is sent out */
 
     return 1;
 }
