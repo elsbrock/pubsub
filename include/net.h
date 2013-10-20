@@ -18,10 +18,10 @@ enum {
     T_PUBREL  = 0x6 << 4,
     T_PUBCOMP = 0x7 << 4,
     T_SUBSCRIBE = 0x8 << 4,
-    T_SUBACK = 0x9 << 4,
+    T_SUBACK    = 0x9 << 4,
     T_UNSUBSCRIBE = 0x10 << 4,
-    T_UNSUBACK = 0x11 << 4,
-    T_PINGREQ = 0x12 << 4,
+    T_UNSUBACK    = 0x11 << 4,
+    T_PINGREQ  = 0x12 << 4,
     T_PINGRESP = 0x13 << 4,
     T_DISCONNECT = 0x14 << 4,
     /* RESERVED: 0x15 */
