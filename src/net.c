@@ -24,6 +24,11 @@
 
 static int read_packet(struct Client *client);
 
+/* Accepts a single incoming connection on the listen_fd. If the connection
+ * could be accepted, a new Client is allocated and appended to the client
+ * list. In addition, a new ev_io watcher is registered and started for READ
+ * events.
+ */
 void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
     static struct sockaddr_in peer_addr;
     static socklen_t peer_len = sizeof(peer_addr);
