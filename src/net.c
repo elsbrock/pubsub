@@ -175,10 +175,17 @@ static int read_packet(struct Client *client) {
             logmsg(LOG_DEBUG, "CONNECT from client\n");
             ret = handle_connect(client, msg_length);
             break;
+        case T_PINGREQ:
+            logmsg(LOG_DEBUG, "PINGREQ from client\n");
+            /*ret = handle_pinreq(client, msg_length);*/
+            break;
         default:
             logmsg(LOG_DEBUG, "invalid message type: 0x%x\n", msg_type);
             break;
     }
+
+    /*if (ret)
+        reset_keepalive(client);*/
 
     return ret;
 }

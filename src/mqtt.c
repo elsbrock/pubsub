@@ -50,6 +50,7 @@ int handle_connect(struct Client *client, int msg_length) {
     /* keep alive (in seconds) */
     client->keepalive = (client->inbuf[walk] << 8) + client->inbuf[walk+1];
     walk += 2;
+    /* XXX: register keep-alive timer */
 
     logmsg(LOG_DEBUG, "keepalive is %d seconds\n", client->keepalive);
 
