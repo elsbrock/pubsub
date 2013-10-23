@@ -8,13 +8,23 @@
 #include <time.h>
 #include <ev.h>
 
+#include "main.h"
 #include "queue.h"
+#include "mqtt.h"
 
 #define BUF_LEN 4096
 
 struct Context {
     time_t started_at;
     int num_clients;
+};
+
+struct Envelope {
+    time_t enqueued_at;
+    char *msg;
+    size_t bytes_total;
+    size_t bytes_sent;
+    LIST_ENTRY(Envelope) entries;
 };
 
 struct Client {
@@ -27,6 +37,7 @@ struct Client {
     char *inbuf;
     int inbuf_bytes;
     /* outbuf: should be a queue with enqueued msgs */
+    LIST_HEAD(outgoing_head, Envelope) outgoing_msgs;
     time_t connected_at;
     char *will_topic;
     char *will_msg;

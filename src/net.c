@@ -45,7 +45,7 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
     }
 
     peer_sd = accept(watcher->fd, (struct sockaddr *)&peer_addr, &peer_len);
-    if (peer_sd == EAGAIN || peer_sd == EWOULDBLOCK)
+    if (peer_sd == EAGAIN || peer_sd == EINTR || peer_sd == EWOULDBLOCK)
         return;
 
     if (peer_sd < 0) {
@@ -67,15 +67,18 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
     client->state = S_CONNECTING;
     client->inbuf = malloc(sizeof(char) * BUF_LEN);
     client->inbuf_bytes = 0;
+
     LIST_INSERT_HEAD(&clients, client, entries);
+    LIST_INIT(&(client->outgoing_msgs));
+
     num_clients++;
 
-    ev_io_init(client->watcher, peer_cb, peer_sd, EV_READ);
+    ev_io_init(client->watcher, peer_cb, peer_sd, EV_READ | EV_WRITE);
     ev_io_start(EV_A_ client->watcher);
 }
 
 void peer_cb(EV_P_ struct ev_io *peer_w, int revents) {
-    struct Client *client;
+    Client *client;
     int bytes_read, ret;
 
     /* look up client context */
@@ -93,6 +96,9 @@ void peer_cb(EV_P_ struct ev_io *peer_w, int revents) {
                         BUF_LEN-client->inbuf_bytes)) == 0) {
             logmsg(LOG_INFO, "client disconnected\n");
             num_clients--;
+
+            if (bytes_read == -1 && errno == EAGAIN)
+                return;
 
             if ((ret = close(client->fd)) != 0)
                 logmsg(LOG_ERR, "could not close socket: %s\n", gai_strerror(ret));
@@ -124,6 +130,42 @@ void peer_cb(EV_P_ struct ev_io *peer_w, int revents) {
         /* XXX: free and malloc() again if msg was > 4096 */
         if (ret)
             client->inbuf_bytes = 0;
+    } else if (revents & EV_WRITE) {
+        int ret;
+
+        /* Try to send out a single message. */
+        Envelope *envelope;
+        LIST_FOREACH(envelope, &client->outgoing_msgs, entries) {
+            assert(envelope->bytes_total != envelope->bytes_sent);
+
+            logmsg(LOG_DEBUG, "going to send %d bytes of %d total bytes\n",
+                    envelope->bytes_total-envelope->bytes_sent, envelope->bytes_total);
+
+            ret = write(client->fd, envelope->msg+envelope->bytes_sent,
+                    envelope->bytes_total-envelope->bytes_sent);
+
+            if (ret < 0) {
+                if (ret == EAGAIN || ret == EWOULDBLOCK || ret == EINTR)
+                    break;
+                /* else {
+                    disconnect_client();
+                    return;
+                */
+            }
+
+            envelope->bytes_sent += ret;
+
+            /* If the entire message could be sent, remove it from the queue. */
+            if (envelope->bytes_sent == envelope->bytes_total) {
+                /* XXX: if the envelope is shared, don't free it */
+                logmsg(LOG_DEBUG, "msg sent!\n");
+                LIST_REMOVE(envelope, entries);
+                free(envelope->msg);
+                free(envelope);
+            }
+
+            break; /* maybe send more? */
+        }
     }
 }
 

@@ -8,6 +8,12 @@
 #define PROTOCOL_NAME "MQIsdp"
 #define PROTOCOL_VERSION 3
 
+#include "data.h"
+
+typedef struct Client Client;
+typedef struct Envelope Envelope;
+typedef struct mqtt_msg mqtt_msg;
+
 typedef enum {
     /* RESERVED: 0x0 */
     T_CONNECT = 0x1 << 4,
@@ -27,22 +33,26 @@ typedef enum {
     /* RESERVED: 0x15 */
 } msg_t;
 
-typedef union {
-    unsigned char level : 2;
-} qos_t;
-
 /* Basic message. */
-typedef struct {
-    union {
-        /* bits 0-3: msg_t */
-        unsigned char type   : 4;
-        unsigned char dup    : 1;
-        qos_t qos    : 2;
-        unsigned char retain : 1;
-    } flags;
-    uint8_t remaining_bytes[5];
+struct mqtt_msg {
+    msg_t type;
+
+    struct {
+        bool duplicate;
+        uint8_t qos;
+        bool retain;
+    } *flags;
+
+    /* The number of bytes the remaining length occupies. */
+    uint8_t remaining_num;
+
+    /* Remaining length can take up to 4 bytes. */
+    uint8_t  remaining_bytes[4];
+    uint32_t payload_len;
+
+    /* The payload (optional) */
     char *payload;
-} mqtt_packet;
+};
 
 /* The possible CONNECT return codes used in a CONNACK. */
 typedef enum {
@@ -62,7 +72,7 @@ typedef enum {
     /* reserved: 0x06-0xFF */
 } conn_return_t;
 
-int handle_connect(struct Client *client, int msg_length);
-int queue_connack(struct Client *client, conn_return_t type);
-mqtt_packet *generate_packet(msg_t type, bool dup, uint8_t qos, bool retain, size_t len);
+int handle_connect(Client *client, size_t msg_length);
+int create_msg(mqtt_msg *msg, msg_t type, uint8_t qos, bool retain, size_t len);
+int enqueue_msg(Client *client, mqtt_msg *msg);
 #endif
