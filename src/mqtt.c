@@ -14,7 +14,7 @@
 #include "util.h"
 
 /* Handles a CONNECT message. Assumes that the message is complete. */
-int handle_connect(Client *client, size_t msg_length) {
+int handle_connect(Client *client, size_t msg_len) {
     assert(client->state == S_CONNECTING);
     assert((client->inbuf[0] & 0xF0) >> 4 == 1); 
     assert((client->inbuf[0] & 0xF) == 0); /* DUP, QoS & Retain */
