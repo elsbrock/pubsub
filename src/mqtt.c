@@ -125,7 +125,6 @@ int handle_connect(Client *client, size_t msg_len) {
     if (password != NULL)
         free(password);
 
-    /* XXX: set state to S_CONNECTED as soon as reply is sent out */
     mqtt_msg *msg = smalloc(sizeof(mqtt_msg));
     create_msg(msg, T_CONNACK, 0, false, 2 /* variable header */);
 
