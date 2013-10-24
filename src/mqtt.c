@@ -14,7 +14,7 @@
 #include "util.h"
 
 /* Handles a CONNECT message. Assumes that the message is complete. */
-int handle_connect(struct Client *client, int msg_length) {
+int handle_connect(Client *client, size_t msg_length) {
     assert(client->state == S_CONNECTING);
     assert((client->inbuf[0] & 0xF0) >> 4 == 1); 
     assert((client->inbuf[0] & 0xF) == 0); /* DUP, QoS & Retain */
@@ -126,6 +126,64 @@ int handle_connect(struct Client *client, int msg_length) {
         free(password);
 
     /* XXX: set state to S_CONNECTED as soon as reply is sent out */
+
+    return 1;
+}
+
+/* Initializes an empty MQTT message. */
+int create_msg(mqtt_msg *msg, msg_t type, uint8_t qos, bool retain, size_t payload_len) {
+    /* XXX: check payload_len */
+
+    msg->type = type;
+    msg->flags = smalloc(3); /* XXX */
+    msg->flags->duplicate = false;
+    msg->flags->qos = qos;
+    msg->flags->retain = retain;
+    msg->remaining_num = 0;
+
+    memset(msg->remaining_bytes, 0, 4);
+
+    uint8_t byte;
+    msg->payload_len = payload_len;
+    do {
+        /* cut MSB */
+        byte = payload_len % 128;
+        payload_len /= 128;
+        if (payload_len > 0) {
+            /* set LSB to 1 if more bytes to come */
+            byte = byte | 0x80;
+        }
+        msg->remaining_bytes[msg->remaining_num] = byte;
+        msg->remaining_num++;
+        if (msg->remaining_num == 4)
+            break;
+    } while (payload_len > 0);
+
+    msg->payload = smalloc(msg->payload_len);
+
+    return 1;
+}
+
+int enqueue_msg(Client *client, mqtt_msg *msg) {
+    Envelope *envelope = smalloc(sizeof(Envelope));
+
+    envelope->enqueued_at = 0;
+    envelope->bytes_sent = 0;
+    envelope->bytes_total = msg->payload_len + msg->remaining_num + 1;
+    envelope->msg = smalloc(envelope->bytes_total);
+
+    envelope->msg[0] = (msg->type | msg->flags->duplicate << 3
+        | msg->flags->qos << 1 | msg->flags->retain);
+
+    /* XXX: well, this is rather stupid. */
+    memcpy(envelope->msg+1, msg->remaining_bytes, msg->remaining_num);
+    memcpy(envelope->msg+1+msg->remaining_num, msg->payload, msg->payload_len);
+
+    free(msg->payload);
+    free(msg->flags);
+    free(msg);
+
+    LIST_INSERT_HEAD(&(client->outgoing_msgs), envelope, entries);
 
     return 1;
 }
