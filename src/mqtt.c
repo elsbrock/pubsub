@@ -126,6 +126,15 @@ int handle_connect(Client *client, size_t msg_length) {
         free(password);
 
     /* XXX: set state to S_CONNECTED as soon as reply is sent out */
+    mqtt_msg *msg = smalloc(sizeof(mqtt_msg));
+    create_msg(msg, T_CONNACK, 0, false, 2 /* variable header */);
+
+    /* XXX: not sure if this is needed, the first byte is reserved (not used) */
+    memset(msg->payload, 0, 1);
+    msg->payload[1] = R_ACK;
+
+    enqueue_msg(client, msg);
+    client->state = S_CONNECTED;
 
     return 1;
 }
