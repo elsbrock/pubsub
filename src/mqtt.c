@@ -138,6 +138,15 @@ int handle_connect(Client *client, size_t msg_len) {
     return 1;
 }
 
+int handle_pingreq(Client *client, size_t msg_len) {
+    mqtt_msg *msg = smalloc(sizeof(mqtt_msg));
+    create_msg(msg, T_PINGRESP, 0, false, 0);
+    enqueue_msg(client, msg);
+
+    /* XXX: reset keep-alive */
+    return 1;
+}
+
 /* Initializes an empty MQTT message. */
 int create_msg(mqtt_msg *msg, msg_t type, uint8_t qos, bool retain, size_t payload_len) {
     /* XXX: check payload_len */

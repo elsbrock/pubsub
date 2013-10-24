@@ -124,11 +124,15 @@ void peer_cb(EV_P_ struct ev_io *peer_w, int revents) {
         logmsg(LOG_DEBUG, "read %d bytes from client\n", bytes_read);
 
         client->inbuf_bytes += bytes_read;
-        if (client->inbuf_bytes > 2)
+        if (client->inbuf_bytes >= 2)
             ret = read_packet(client);
 
         /* XXX: free and malloc() again if msg was > 4096 */
-        if (ret)
+        if (ret == 1)
+            client->inbuf_bytes = 0;
+        else if (ret == -1)
+            /* In case of a complete message of unknown type, simply discard
+             * the message. */
             client->inbuf_bytes = 0;
     } else if (revents & EV_WRITE) {
         int ret;
@@ -169,8 +173,18 @@ void peer_cb(EV_P_ struct ev_io *peer_w, int revents) {
     }
 }
 
+/* Reads a potentially incomplete message of least 2 bytes size. Parsing the
+ * first two bytes allows us to get the message type, whereas the second byte
+ * is needed to decide whether the packet is already complete or not. If it is
+ * complete, the packet is passed over to one of the message handlers, where it
+ * can be processed.
+ *
+ * Returns 1 if the processing succeeded, 0 if the message is not yet complete
+ * and -1 if this message is either unknown or if there is no handler for this
+ * type of message.
+ */
 static int read_packet(struct Client *client) {
-    assert(client->inbuf_bytes > 2);
+    assert(client->inbuf_bytes >= 2);
 
     int msg_length = client->inbuf[1];
     bool msg_complete = false;
@@ -220,15 +234,17 @@ static int read_packet(struct Client *client) {
             break;
         case T_PINGREQ:
             logmsg(LOG_DEBUG, "PINGREQ from client\n");
-            /*ret = handle_pinreq(client, msg_length);*/
+            ret = handle_pingreq(client, msg_length);
             break;
         default:
             logmsg(LOG_DEBUG, "unhandled message type: 0x%x\n", type);
+            ret = -1;
             break;
     }
 
     /*if (ret)
         reset_keepalive(client);*/
 
+    logmsg(LOG_DEBUG, "read_packet=%d\n", ret);
     return ret;
 }
