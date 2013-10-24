@@ -13,6 +13,8 @@
 typedef struct Client Client;
 typedef struct Envelope Envelope;
 typedef struct mqtt_msg mqtt_msg;
+typedef struct Topic Topic;
+typedef struct Subscription Subscription;
 
 typedef enum {
     /* RESERVED: 0x0 */

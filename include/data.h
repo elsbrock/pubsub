@@ -72,4 +72,32 @@ struct Client {
     LIST_HEAD(outgoing_head, Envelope) outgoing_msgs;
 };
 
+/* A topic is one element of the tree data structure that represents the
+ * hierarchical namespace of MQTT. Each topic may have a number of subscribing
+ * clients that will be informed about new messages that have been published to
+ * the topic by other clients. */
+struct Topic {
+    char *name;
+    msg_t retained_msg;
+
+    /* Used to store subscriptions. */
+    LIST_HEAD(subtopic_head, Topic) subtopics;
+    LIST_ENTRY(Topic) entries;
+
+    /* Used to store subscriptions. */
+    int subscriptions_num;
+    LIST_HEAD(subscription_head, Subscription) subscriptions;
+};
+
+struct Subscription {
+    /* The type of subscription: PLAIN means a subscription with a
+     * fully-qualified path without any wildcards; SINGLE means a subscription
+     * with a single-level wildcards, MULTI a subscription with a multi-level
+     * wildcard. */
+    enum { S_PLAIN, S_SINGLE, S_MULTI } type;
+
+    /* The subscribing client. */
+    Client *client;
+};
+
 #endif
