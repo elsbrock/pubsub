@@ -19,11 +19,22 @@ struct Context {
     int num_clients;
 };
 
+/* An envelope is an MQTT message that is placed in the outgoing queue of a
+ * client and about to be sent. */
 struct Envelope {
+    /* The time at which the message was enqueued. */
     time_t enqueued_at;
-    char *msg;
+
+    /* The total length of the message, and the number of bytes that have been
+     * already submitted. */
     size_t bytes_total;
     size_t bytes_sent;
+
+    /* The actual message, consisting of a fixed and a variable header which is
+     * optional though. */
+    char *msg;
+
+    /* An envelope is part of the outgoing messages queue of the client. */
     LIST_ENTRY(Envelope) entries;
 };
 
