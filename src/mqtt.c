@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ev.h>
 
 #include "main.h"
 #include "log.h"
@@ -201,6 +202,10 @@ int enqueue_msg(Client *client, mqtt_msg *msg) {
     free(msg);
 
     LIST_INSERT_HEAD(&(client->outgoing_msgs), envelope, entries);
+    client->outgoing_num++;
+
+    if (client->outgoing_num == 1)
+        ev_io_start(loop, client->write_w);
 
     return 1;
 }

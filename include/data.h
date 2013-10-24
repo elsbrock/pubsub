@@ -28,21 +28,37 @@ struct Envelope {
 };
 
 struct Client {
-    /* The watcher is stored here to enable/disable EV_WRITE. */
-    struct ev_io *watcher;
     int fd;
+
+    /* The read watcher is started as soon as the connection is accepted. It is
+     * never stopped as long as the client is connected. */
+    struct ev_io *read_w;
+
+    /* The write watcher is started as soon as a message has been enqueued. If
+     * there is no message left in the queue, the write_watcher is stopped to
+     * avoid busy-looping. */
+    struct ev_io *write_w;
+
+    /* Each client is embedded into the clients list. */
+    LIST_ENTRY(Client) entries;
+
     char *identifier;
     uint16_t keepalive;
-    time_t last_ping;
-    char *inbuf;
-    int inbuf_bytes;
-    /* outbuf: should be a queue with enqueued msgs */
-    LIST_HEAD(outgoing_head, Envelope) outgoing_msgs;
-    time_t connected_at;
     char *will_topic;
     char *will_msg;
+
     enum { S_CONNECTING = 0, S_CONNECTED = 1} state;
-    LIST_ENTRY(Client) entries;
+
+    time_t connected_at;
+    time_t last_ping;
+
+    /* Used to store incoming messages. */
+    char *inbuf;
+    int inbuf_bytes;
+
+    /* Used to store outgoing messages. */
+    int outgoing_num;
+    LIST_HEAD(outgoing_head, Envelope) outgoing_msgs;
 };
 
 #endif

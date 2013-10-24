@@ -62,22 +62,31 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
         logmsg(LOG_ERR, "getnameinfo: %s\n", gai_strerror(ret));
 
     client = smalloc(sizeof(struct Client));
-    client->watcher = (struct ev_io*) smalloc(sizeof(struct ev_io));
+
     client->fd = peer_sd;
     client->state = S_CONNECTING;
     client->inbuf = malloc(sizeof(char) * BUF_LEN);
     client->inbuf_bytes = 0;
 
-    LIST_INSERT_HEAD(&clients, client, entries);
+    client->outgoing_num = 0;
     LIST_INIT(&(client->outgoing_msgs));
 
-    num_clients++;
+    client->read_w  = (struct ev_io*) smalloc(sizeof(struct ev_io));
+    client->write_w = (struct ev_io*) smalloc(sizeof(struct ev_io));
 
-    ev_io_init(client->watcher, peer_cb, peer_sd, EV_READ | EV_WRITE);
-    ev_io_start(EV_A_ client->watcher);
+    ev_io_init(client->read_w, client_read_cb, peer_sd, EV_READ);
+    ev_io_start(EV_A_ client->read_w);
+
+    ev_io_init(client->write_w, client_write_cb, peer_sd, EV_WRITE);
+
+    LIST_INSERT_HEAD(&clients, client, entries);
+    num_clients++;
 }
 
-void peer_cb(EV_P_ struct ev_io *peer_w, int revents) {
+void client_read_cb(EV_P_ struct ev_io *read_w, int revents) {
+    if ((revents & EV_READ) == 0)
+        return;
+
     Client *client;
     int bytes_read, ret;
 
@@ -89,88 +98,110 @@ void peer_cb(EV_P_ struct ev_io *peer_w, int revents) {
     }
 
     assert(client != NULL);
-    assert(client->watcher->fd == client->fd);
+    assert(client->read_w->fd == client->fd);
 
-    if (revents & EV_READ) {
-        if ((bytes_read = read(client->fd, client->inbuf+client->inbuf_bytes,
-                        BUF_LEN-client->inbuf_bytes)) == 0) {
-            logmsg(LOG_INFO, "client disconnected\n");
-            num_clients--;
+    if ((bytes_read = read(client->fd, client->inbuf+client->inbuf_bytes,
+                    BUF_LEN-client->inbuf_bytes)) == 0) {
+        logmsg(LOG_INFO, "client disconnected\n");
+        num_clients--;
 
-            if (bytes_read == -1 && errno == EAGAIN)
-                return;
-
-            if ((ret = close(client->fd)) != 0)
-                logmsg(LOG_ERR, "could not close socket: %s\n", gai_strerror(ret));
-
-            LIST_REMOVE(client, entries);
-            free(client->identifier); /* XXX: this may not have been malloced() yet */
-            free(client->will_topic); /* XXX: this may not have been malloced() yet */
-            free(client->will_msg);   /* XXX: this may not have been malloced() yet */
-            free(client->inbuf);
-
-            ev_io_stop(EV_A_ client->watcher);
-            free(client->watcher);
-
-            free(client);
-
-
+        if (bytes_read == -1 && errno == EAGAIN)
             return;
-        } else if (bytes_read == -1) {
-            logmsg(LOG_DEBUG, "read() failed: %s\n", gai_strerror(bytes_read));
-            return;
-        }
 
-        logmsg(LOG_DEBUG, "read %d bytes from client\n", bytes_read);
+        if ((ret = close(client->fd)) != 0)
+            logmsg(LOG_ERR, "could not close socket: %s\n", gai_strerror(ret));
 
-        client->inbuf_bytes += bytes_read;
-        if (client->inbuf_bytes >= 2)
-            ret = read_packet(client);
+        LIST_REMOVE(client, entries);
+        free(client->identifier); /* XXX: this may not have been malloced() yet */
+        free(client->will_topic); /* XXX: this may not have been malloced() yet */
+        free(client->will_msg);   /* XXX: this may not have been malloced() yet */
+        free(client->inbuf);
 
-        /* XXX: free and malloc() again if msg was > 4096 */
-        if (ret == 1)
-            client->inbuf_bytes = 0;
-        else if (ret == -1)
-            /* In case of a complete message of unknown type, simply discard
-             * the message. */
-            client->inbuf_bytes = 0;
-    } else if (revents & EV_WRITE) {
-        int ret;
+        ev_io_stop(EV_A_ client->read_w);
+        ev_io_stop(EV_A_ client->write_w);
+        free(client->read_w);
+        free(client->write_w);
 
-        /* Try to send out a single message. */
-        Envelope *envelope;
-        LIST_FOREACH(envelope, &client->outgoing_msgs, entries) {
-            assert(envelope->bytes_total != envelope->bytes_sent);
+        free(client);
 
-            logmsg(LOG_DEBUG, "going to send %d bytes of %d total bytes\n",
-                    envelope->bytes_total-envelope->bytes_sent, envelope->bytes_total);
 
-            ret = write(client->fd, envelope->msg+envelope->bytes_sent,
-                    envelope->bytes_total-envelope->bytes_sent);
-
-            if (ret < 0) {
-                if (ret == EAGAIN || ret == EWOULDBLOCK || ret == EINTR)
-                    break;
-                /* else {
-                    disconnect_client();
-                    return;
-                */
-            }
-
-            envelope->bytes_sent += ret;
-
-            /* If the entire message could be sent, remove it from the queue. */
-            if (envelope->bytes_sent == envelope->bytes_total) {
-                /* XXX: if the envelope is shared, don't free it */
-                logmsg(LOG_DEBUG, "msg sent!\n");
-                LIST_REMOVE(envelope, entries);
-                free(envelope->msg);
-                free(envelope);
-            }
-
-            break; /* maybe send more? */
-        }
+        return;
+    } else if (bytes_read == -1) {
+        logmsg(LOG_DEBUG, "read() failed: %s\n", gai_strerror(bytes_read));
+        return;
     }
+
+    logmsg(LOG_DEBUG, "read %d bytes from client\n", bytes_read);
+
+    client->inbuf_bytes += bytes_read;
+    if (client->inbuf_bytes >= 2)
+        ret = read_packet(client);
+
+    /* XXX: free and malloc() again if msg was > 4096 */
+    if (ret == 1)
+        client->inbuf_bytes = 0;
+    else if (ret == -1)
+        /* In case of a complete message of unknown type, simply discard
+         * the message. */
+        client->inbuf_bytes = 0;
+}
+
+void client_write_cb(EV_P_ struct ev_io *write_w, int revents) {
+    if ((revents & EV_WRITE) == 0)
+        return;
+
+    Client *client;
+    int ret;
+
+    /* look up client context */
+    /* XXX: use hashtable? */
+    LIST_FOREACH(client, &clients, entries) {
+        if (client->fd == client->fd)
+            break;
+    }
+
+    assert(client != NULL);
+    assert(client->write_w->fd == client->fd);
+
+    /* Try to send out a single message. */
+    Envelope *envelope;
+    LIST_FOREACH(envelope, &client->outgoing_msgs, entries) {
+        assert(envelope->bytes_total != envelope->bytes_sent);
+
+        logmsg(LOG_DEBUG, "going to send %d bytes of %d total bytes\n",
+                envelope->bytes_total-envelope->bytes_sent, envelope->bytes_total);
+
+        ret = write(client->fd, envelope->msg+envelope->bytes_sent,
+                envelope->bytes_total-envelope->bytes_sent);
+
+        if (ret < 0) {
+            if (ret == EAGAIN || ret == EWOULDBLOCK || ret == EINTR)
+                break;
+            /* else {
+                disconnect_client();
+                return;
+            */
+        }
+
+        envelope->bytes_sent += ret;
+
+        /* If the entire message could be sent, remove it from the queue. */
+        if (envelope->bytes_sent == envelope->bytes_total) {
+            /* XXX: if the envelope is shared, don't free it */
+            logmsg(LOG_DEBUG, "msg sent!\n");
+            LIST_REMOVE(envelope, entries);
+            free(envelope->msg);
+            free(envelope);
+            client->outgoing_num--;
+        }
+
+        break; /* maybe send more? */
+    }
+
+    /* If there are no pending outgoing messages in the queue left, disable the
+     * write watcher to avoid busy looping. */
+    if (client->outgoing_num == 0)
+        ev_io_stop(EV_A_ write_w);
 }
 
 /* Reads a potentially incomplete message of least 2 bytes size. Parsing the

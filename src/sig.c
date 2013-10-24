@@ -24,8 +24,10 @@ void sig_cb(EV_P_ ev_signal *signal_w, int revents) {
     /* disconnect all clients */
     LIST_FOREACH(client, &clients, entries) {
         LIST_REMOVE(client, entries);
-        ev_io_stop(EV_A_ client->watcher);
-        free(client->watcher);
+        ev_io_stop(EV_A_ client->read_w);
+        ev_io_stop(EV_A_ client->write_w);
+        free(client->read_w);
+        free(client->write_w);
         close(client->fd);
         free(client->identifier); /* XXX: this may not have been malloced() yet */
         free(client->will_topic); /* XXX: this may not have been malloced() yet */

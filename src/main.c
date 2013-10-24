@@ -22,6 +22,7 @@
 #include "sig.h"
 #include "misc.h"
 
+struct ev_loop *loop;
 struct clients_head clients = SLIST_HEAD_INITIALIZER(clients);
 int num_clients = 0;
 int listen_fd;
@@ -30,7 +31,7 @@ int main(int argc, char *argv[]) {
     static struct addrinfo hints;
     static struct addrinfo *result, *rp;
     static int ret;
-    struct ev_loop *loop = EV_DEFAULT;
+    loop = EV_DEFAULT;
     ev_timer timer_w;
     ev_io accept_w;
     ev_signal signal_w;

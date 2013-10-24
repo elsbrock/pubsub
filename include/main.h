@@ -11,6 +11,7 @@
 #define true 1
 #define false 0
 
+extern struct ev_loop *loop;
 extern LIST_HEAD(clients_head, Client) clients;
 extern int listen_fd;
 extern int num_clients;
