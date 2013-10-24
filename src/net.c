@@ -195,24 +195,25 @@ static int read_packet(struct Client *client) {
     }
 
     if (msg_complete)
-        logmsg(LOG_DEBUG, "message is complete (%d bytes)\n", client->inbuf_bytes-2);
+        logmsg(LOG_DEBUG, "message is complete (%d bytes)\n", client->inbuf_bytes);
     else {
         /* XXX: the buffer is pretty small (4096 bytes), so messages with
          * payload > 4096 bytes will never be handled at the moment. */
-        logmsg(LOG_DEBUG, "expected %d bytes, but only got %d so far\n", msg_length,
-                client->inbuf_bytes-2);
+        logmsg(LOG_DEBUG, "expected %d bytes, but got %d so far\n", msg_length,
+                client->inbuf_bytes);
+        assert(client->inbuf_bytes < msg_length);
         return 0; /* try again later */
     }
 
     int ret = 0;
-    int msg_type = (client->inbuf[0]) & 0xF0;
-    if (client->state == S_CONNECTING && msg_type != T_CONNECT) {
+    msg_t type = (client->inbuf[0]) & 0xF0;
+    if (client->state == S_CONNECTING && type != T_CONNECT) {
         /* XXX: disconnect client */
-        logmsg(LOG_ERR, "invalid client state: expected CONNECT message but got 0x%x\n", msg_type);
+        logmsg(LOG_ERR, "invalid client state: expected CONNECT message but got 0x%x\n", type);
         return 0;
     }
 
-    switch(msg_type) {
+    switch(type) {
         case T_CONNECT:
             logmsg(LOG_DEBUG, "CONNECT from client\n");
             ret = handle_connect(client, msg_length);
@@ -222,7 +223,7 @@ static int read_packet(struct Client *client) {
             /*ret = handle_pinreq(client, msg_length);*/
             break;
         default:
-            logmsg(LOG_DEBUG, "invalid message type: 0x%x\n", msg_type);
+            logmsg(LOG_DEBUG, "unhandled message type: 0x%x\n", type);
             break;
     }
 
