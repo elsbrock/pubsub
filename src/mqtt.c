@@ -204,6 +204,9 @@ int enqueue_msg(Client *client, Message *msg) {
     LIST_INSERT_HEAD(&(client->outgoing_msgs), envelope, entries);
     client->outgoing_num++;
 
+    /* XXX: if the message is small, try to avoid starting the watcher by
+     * writing directly. */
+
     if (client->outgoing_num == 1)
         ev_io_start(loop, client->write_w);
 
