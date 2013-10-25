@@ -126,7 +126,7 @@ int handle_connect(Client *client, size_t msg_len) {
     if (password != NULL)
         free(password);
 
-    mqtt_msg *msg = smalloc(sizeof(mqtt_msg));
+    Message *msg = smalloc(sizeof(Message));
     create_msg(msg, T_CONNACK, 0, false, 2 /* variable header */);
 
     /* XXX: not sure if this is needed, the first byte is reserved (not used) */
@@ -140,7 +140,7 @@ int handle_connect(Client *client, size_t msg_len) {
 }
 
 int handle_pingreq(Client *client, size_t msg_len) {
-    mqtt_msg *msg = smalloc(sizeof(mqtt_msg));
+    Message *msg = smalloc(sizeof(Message));
     create_msg(msg, T_PINGRESP, 0, false, 0);
     enqueue_msg(client, msg);
 
@@ -149,7 +149,7 @@ int handle_pingreq(Client *client, size_t msg_len) {
 }
 
 /* Initializes an empty MQTT message. */
-int create_msg(mqtt_msg *msg, msg_t type, uint8_t qos, bool retain, size_t payload_len) {
+int create_msg(Message *msg, msg_t type, uint8_t qos, bool retain, size_t payload_len) {
     /* XXX: check payload_len */
 
     msg->type = type;
@@ -182,7 +182,7 @@ int create_msg(mqtt_msg *msg, msg_t type, uint8_t qos, bool retain, size_t paylo
     return 1;
 }
 
-int enqueue_msg(Client *client, mqtt_msg *msg) {
+int enqueue_msg(Client *client, Message *msg) {
     Envelope *envelope = smalloc(sizeof(Envelope));
 
     envelope->enqueued_at = 0;

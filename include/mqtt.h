@@ -12,7 +12,7 @@
 
 typedef struct Client Client;
 typedef struct Envelope Envelope;
-typedef struct mqtt_msg mqtt_msg;
+typedef struct Message Message;
 typedef struct Topic Topic;
 typedef struct Subscription Subscription;
 
@@ -36,7 +36,7 @@ typedef enum {
 } msg_t;
 
 /* Basic message. */
-struct mqtt_msg {
+struct Message {
     msg_t type;
 
     struct {
@@ -76,6 +76,6 @@ typedef enum {
 
 int handle_connect(Client *client, size_t msg_length);
 int handle_pingreq(Client *client, size_t msg_len);
-int create_msg(mqtt_msg *msg, msg_t type, uint8_t qos, bool retain, size_t len);
-int enqueue_msg(Client *client, mqtt_msg *msg);
+int create_msg(Message *msg, msg_t type, uint8_t qos, bool retain, size_t len);
+int enqueue_msg(Client *client, Message *msg);
 #endif
