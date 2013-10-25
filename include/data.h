@@ -14,6 +14,8 @@
 
 #define BUF_LEN 4096
 
+extern Topic topic_tree;
+
 struct Context {
     time_t started_at;
     int num_clients;

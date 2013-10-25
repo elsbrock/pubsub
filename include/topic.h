@@ -2,7 +2,7 @@
 /*
  * vim:ts=4:sw=4:expandtab
  */
-/* A topic is a node of a tree with one parent and zero to unlimited
- * number of children. Each topic has a list of associated subscribers.
- * Each topic can have a retained message.
- */
+#ifndef PUBSUB_TOPIC_H
+#define PUBSUB_TOPIC_H
+
+Topic *walk_into_topic(char *fqdn_topic, bool autocreate)
