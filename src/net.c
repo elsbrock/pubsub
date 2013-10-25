@@ -30,21 +30,14 @@ static int read_packet(struct Client *client);
  * events.
  */
 void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
-    static struct sockaddr_in peer_addr;
-    static socklen_t peer_len = sizeof(peer_addr);
-    int peer_sd;
-    char host[NI_MAXHOST], service[NI_MAXSERV];
-    int ret;
-    struct Client *client;
-
-    logmsg(LOG_DEBUG, "got libev event: 0x%x\n", revents);
-
     if (EV_ERROR & revents) {
         logmsg(LOG_ERR, "libev: invalid event\n");
         return;
     }
 
-    peer_sd = accept(watcher->fd, (struct sockaddr *)&peer_addr, &peer_len);
+    static struct sockaddr_in peer_addr;
+    static socklen_t peer_len = sizeof(peer_addr);
+    int peer_sd = accept(watcher->fd, (struct sockaddr *)&peer_addr, &peer_len);
     if (peer_sd == EAGAIN || peer_sd == EINTR || peer_sd == EWOULDBLOCK)
         return;
 
@@ -53,7 +46,8 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
         return;
     }
 
-    ret = getnameinfo((struct sockaddr *) &peer_addr, peer_len, host,
+    char host[NI_MAXHOST], service[NI_MAXSERV];
+    int ret = getnameinfo((struct sockaddr *) &peer_addr, peer_len, host,
                 NI_MAXHOST, service, NI_MAXSERV, NI_NUMERICSERV);
 
     if (ret == 0)
@@ -61,7 +55,7 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
     else
         logmsg(LOG_ERR, "getnameinfo: %s\n", gai_strerror(ret));
 
-    client = smalloc(sizeof(struct Client));
+    struct Client *client = smalloc(sizeof(struct Client));
 
     client->fd = peer_sd;
     client->state = S_CONNECTING;
