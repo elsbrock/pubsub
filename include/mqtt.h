@@ -8,6 +8,7 @@
 #define PROTOCOL_NAME "MQIsdp"
 #define PROTOCOL_VERSION 3
 
+#include <stdint.h>
 #include "data.h"
 
 typedef struct Client Client;

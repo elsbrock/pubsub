@@ -175,8 +175,7 @@ void client_write_cb(EV_P_ struct ev_io *write_w, int revents) {
             /* XXX: if the envelope is shared, don't free it */
             logmsg(LOG_DEBUG, "msg sent!\n");
             LIST_REMOVE(envelope, entries);
-            free(envelope->msg);
-            free(envelope);
+            free_envelope(envelope);
             client->outgoing_num--;
         }
 
