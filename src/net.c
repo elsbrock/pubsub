@@ -23,6 +23,8 @@
 #include "util.h"
 
 static int read_packet(struct Client *client);
+static void client_read_cb(EV_P_ struct ev_io *peer_w, int revents);
+static void client_write_cb(EV_P_ struct ev_io *peer_w, int revents);
 
 /* Accepts a single incoming connection on the listen_fd. If the connection
  * could be accepted, a new Client is allocated and appended to the client
@@ -81,7 +83,7 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
     num_clients++;
 }
 
-void client_read_cb(EV_P_ struct ev_io *read_w, int revents) {
+static void client_read_cb(EV_P_ struct ev_io *read_w, int revents) {
     if ((revents & EV_READ) == 0)
         return;
 
@@ -131,7 +133,7 @@ void client_read_cb(EV_P_ struct ev_io *read_w, int revents) {
         client->inbuf_bytes = 0;
 }
 
-void client_write_cb(EV_P_ struct ev_io *write_w, int revents) {
+static void client_write_cb(EV_P_ struct ev_io *write_w, int revents) {
     if ((revents & EV_WRITE) == 0)
         return;
 
