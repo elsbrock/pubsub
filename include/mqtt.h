@@ -77,8 +77,6 @@ typedef enum {
 
 int handle_connect(Client *client, size_t msg_length);
 int handle_pingreq(Client *client, size_t msg_len);
-int create_msg(Message *msg, msg_t type, uint8_t qos, bool retain, size_t len);
-int enqueue_msg(Client *client, Message *msg);
 void free_client(Client *client);
 void free_envelope(Envelope *envelope);
 

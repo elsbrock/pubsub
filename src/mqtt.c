@@ -14,6 +14,9 @@
 #include "mqtt.h"
 #include "util.h"
 
+static int create_msg(Message *msg, msg_t type, uint8_t qos, bool retain, size_t len);
+static int enqueue_msg(Client *client, Message *msg);
+
 /* Handles a CONNECT message. Assumes that the message is complete. */
 int handle_connect(Client *client, size_t msg_len) {
     assert(client->state == S_CONNECTING);
@@ -149,7 +152,7 @@ int handle_pingreq(Client *client, size_t msg_len) {
 }
 
 /* Initializes an empty MQTT message. */
-int create_msg(Message *msg, msg_t type, uint8_t qos, bool retain, size_t payload_len) {
+static int create_msg(Message *msg, msg_t type, uint8_t qos, bool retain, size_t payload_len) {
     /* XXX: check payload_len */
 
     msg->type = type;
@@ -182,7 +185,7 @@ int create_msg(Message *msg, msg_t type, uint8_t qos, bool retain, size_t payloa
     return 1;
 }
 
-int enqueue_msg(Client *client, Message *msg) {
+static int enqueue_msg(Client *client, Message *msg) {
     Envelope *envelope = smalloc(sizeof(Envelope));
 
     envelope->enqueued_at = 0;
