@@ -212,3 +212,31 @@ int enqueue_msg(Client *client, Message *msg) {
 
     return 1;
 }
+
+void free_client(Client *client) {
+    LIST_REMOVE(client, entries);
+    if (client->identifier != NULL)
+        free(client->identifier);
+    if (client->will_topic != NULL)
+        free(client->will_topic);
+    if (client->will_msg != NULL)
+        free(client->will_msg);
+    free(client->inbuf);
+
+    Envelope *envelope;
+    LIST_FOREACH(envelope, &client->outgoing_msgs, entries) {
+        /* XXX: if envelope is shared, don't free it */
+        free_envelope(envelope);
+    }
+
+    ev_io_stop(EV_A_ client->read_w);
+    ev_io_stop(EV_A_ client->write_w);
+    free(client->read_w);
+    free(client->write_w);
+    free(client);
+}
+
+void free_envelope(Envelope *envelope) {
+    free(envelope->msg);
+    free(envelope);
+}

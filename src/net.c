@@ -62,6 +62,10 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
     client->inbuf = malloc(sizeof(char) * BUF_LEN);
     client->inbuf_bytes = 0;
 
+    client->identifier = NULL;
+    client->will_topic = NULL;
+    client->will_msg = NULL;
+
     client->outgoing_num = 0;
     LIST_INIT(&(client->outgoing_msgs));
 
@@ -105,20 +109,7 @@ void client_read_cb(EV_P_ struct ev_io *read_w, int revents) {
         if ((ret = close(client->fd)) != 0)
             logmsg(LOG_ERR, "could not close socket: %s\n", gai_strerror(ret));
 
-        LIST_REMOVE(client, entries);
-        free(client->identifier); /* XXX: this may not have been malloced() yet */
-        free(client->will_topic); /* XXX: this may not have been malloced() yet */
-        free(client->will_msg);   /* XXX: this may not have been malloced() yet */
-        free(client->inbuf);
-
-        ev_io_stop(EV_A_ client->read_w);
-        ev_io_stop(EV_A_ client->write_w);
-        free(client->read_w);
-        free(client->write_w);
-
-        free(client);
-
-
+        free_client(client);
         return;
     } else if (bytes_read == -1) {
         logmsg(LOG_DEBUG, "read() failed: %s\n", gai_strerror(bytes_read));
