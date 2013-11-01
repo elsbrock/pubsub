@@ -23,7 +23,8 @@ int handle_connect(Client *client, size_t msg_len) {
     assert((client->inbuf[0] & 0xF0) >> 4 == 1); 
     assert((client->inbuf[0] & 0xF) == 0); /* DUP, QoS & Retain */
 
-    int len, walk = 2;
+    size_t len;
+    unsigned walk = 2;
 
     /* protocol identifier */
     len = (client->inbuf[walk] << 8) + client->inbuf[walk+1];

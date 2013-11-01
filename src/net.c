@@ -88,7 +88,8 @@ static void client_read_cb(EV_P_ struct ev_io *read_w, int revents) {
         return;
 
     Client *client;
-    int bytes_read, ret;
+    ssize_t bytes_read;
+    int ret;
 
     /* look up client context */
     /* XXX: use hashtable? */
@@ -128,8 +129,7 @@ static void client_read_cb(EV_P_ struct ev_io *read_w, int revents) {
     if (ret == 1)
         client->inbuf_bytes = 0;
     else if (ret == -1)
-        /* In case of a complete message of unknown type, simply discard
-         * the message. */
+        /* In case of a complete message of unknown type, discard it. */
         client->inbuf_bytes = 0;
 }
 
@@ -138,7 +138,7 @@ static void client_write_cb(EV_P_ struct ev_io *write_w, int revents) {
         return;
 
     Client *client;
-    int ret;
+    ssize_t ret;
 
     /* look up client context */
     /* XXX: use hashtable? */
@@ -203,27 +203,24 @@ static void client_write_cb(EV_P_ struct ev_io *write_w, int revents) {
 static int read_packet(struct Client *client) {
     assert(client->inbuf_bytes >= 2);
 
-    int msg_length = client->inbuf[1];
+    size_t msg_length = 0;
     bool msg_complete = false;
-    if (client->inbuf[1] < 128 && client->inbuf_bytes-2 /* header */ == client->inbuf[1]) {
-        msg_complete = true;
-    } else if (client->inbuf[1] >= 128) {
-        /* variable length encoding: seven bits encode the remaining length,
-         * the eigth bit is the continuation indicator. the maximum number of
-         * bytes is limited to four.                       (source: mqtt ref)
-         */
-        int msg_index = 1;
-        int multiplier = 1;
-        int thisbyte;
-        do {
-            thisbyte = client->inbuf[msg_index++];
-            msg_length = (thisbyte & 0x7F) * multiplier;
-            multiplier *= 128;
-        } while (msg_index < client->inbuf_bytes && (thisbyte & 0x7F) != 0);
 
-        if (client->inbuf_bytes-2 /* header */ == msg_length)
-            msg_complete = true;
-    }
+    /* Variable length encoding: seven bits encode the remaining length,
+     * the eigth bit is the continuation indicator. The maximum number of
+     * bytes is limited to four.                       (Source: mqtt ref)
+     */
+    unsigned int msg_index = 1;
+    unsigned int multiplier = 1;
+    unsigned int thisbyte;
+    do {
+        thisbyte = client->inbuf[msg_index++];
+        msg_length = (thisbyte & 0x7F) * multiplier;
+        multiplier *= 128;
+    } while (msg_index < client->inbuf_bytes && (thisbyte & 0x7F) != 0);
+
+    if (client->inbuf_bytes-2 /* header */ == msg_length)
+        msg_complete = true;
 
     if (msg_complete)
         logmsg(LOG_DEBUG, "message is complete (%d bytes)\n", client->inbuf_bytes);

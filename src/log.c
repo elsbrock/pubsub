@@ -35,7 +35,7 @@ static void _logmsg(const uint8_t level, const bool print, const char *fmt, va_l
     static size_t len;
     FILE *stream = stdout;
     static char *levelstr;
-    int levelstrlen;
+    size_t levelstrlen;
 
     if ((level & log_level) != log_level)
         return;

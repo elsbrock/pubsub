@@ -24,7 +24,7 @@
 
 struct ev_loop *loop;
 struct clients_head clients = SLIST_HEAD_INITIALIZER(clients);
-int num_clients = 0;
+unsigned int num_clients = 0;
 int listen_fd;
 
 int main(int argc, char *argv[]) {

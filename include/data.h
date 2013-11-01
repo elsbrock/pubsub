@@ -18,7 +18,7 @@ extern Topic topic_tree;
 
 struct Context {
     time_t started_at;
-    int num_clients;
+    unsigned int num_clients;
 };
 
 /* An envelope is a client-specific structure containing an MQTT message that
@@ -78,13 +78,13 @@ struct Client {
     time_t connected_at;
     time_t last_ping;
 
-    /* Used to store incoming messages. */
+    /* Used to store an incoming message. */
     char *inbuf;
-    int inbuf_bytes;
+    size_t inbuf_bytes;
 
     /* Used to store outgoing messages. */
     LIST_HEAD(outgoing_head, Envelope) outgoing_msgs;
-    int outgoing_num;
+    unsigned int outgoing_num;
 };
 
 /* A topic is one element of the tree data structure that represents the

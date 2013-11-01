@@ -14,6 +14,6 @@
 extern struct ev_loop *loop;
 extern LIST_HEAD(clients_head, Client) clients;
 extern int listen_fd;
-extern int num_clients;
+extern unsigned int num_clients;
 
 #endif

@@ -1,6 +1,6 @@
 RELEASE = 0.1alpha
 COMMIT  = $(shell git rev-parse --short=6 HEAD)
-VERSION = $(RELEASE).$(COMMIT)
+VERSION = $(RELEASE)-$(COMMIT)
 
 # auto-enable debugging in case a git repo was checked out
 ifneq ("$(COMMIT)", "")
@@ -14,7 +14,7 @@ CFLAGS ?= -O3 -DNDEBUG
 endif
 
 CFLAGS  += -DVERSION='"$(VERSION)"'
-CFLAGS  += -Wall -pedantic -pipe
+CFLAGS  += -Wall -Wextra -Wno-unused-parameter -pedantic -pipe
 CFLAGS  += -std=c99 -D_GNU_SOURCE
 CFLAGS  += -Iinclude
 LDFLAGS += -lev
