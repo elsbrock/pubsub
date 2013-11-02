@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
 #include <ev.h>
@@ -26,6 +27,49 @@
 static int read_packet(struct Client *client);
 static void client_read_cb(EV_P_ struct ev_io *peer_w, int revents);
 static void client_write_cb(EV_P_ struct ev_io *peer_w, int revents);
+
+int net_init(const char *port)
+{
+    struct addrinfo hints;
+    struct addrinfo *result, *rp;
+    int ret;
+    int fd;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_ADDRCONFIG;
+
+    ret = getaddrinfo(NULL, port, &hints, &result);
+    if (ret != 0) {
+        logmsg(LOG_ERR, "getaddrinfo: %s\n", gai_strerror(ret));
+        return -1;
+    }
+
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (fd == -1)
+            continue;
+        if (bind(fd, rp->ai_addr, rp->ai_addrlen) == 0)
+            break;
+        close(fd);
+    }
+    freeaddrinfo(result);
+
+    if (rp == NULL) {
+        logmsg(LOG_ERR, "could not bind socket\n");
+        return -1;
+    }
+
+    if (listen(fd, 5 /* pending conns */) == -1) {
+        logmsg(LOG_ERR, "could not listen on port %d\n", atoi(port));
+        return -1;
+    }
+
+    fcntl(fd, F_SETFL, fcntl(listen_fd, F_GETFL, 0) | O_NONBLOCK);
+    logmsg(LOG_INFO, "listening on port %d\n", atoi(port));
+    return fd;
+}
 
 /* Accepts a single incoming connection on the listen_fd. If the connection
  * could be accepted, a new Client is allocated and appended to the client

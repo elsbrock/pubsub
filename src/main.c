@@ -7,12 +7,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <fcntl.h>
 #include <ev.h>
 
 #include "main.h"
@@ -28,9 +22,6 @@ unsigned int num_clients = 0;
 int listen_fd;
 
 int main(int argc, char *argv[]) {
-    struct addrinfo hints;
-    struct addrinfo *result, *rp;
-    int ret;
     loop = EV_DEFAULT;
     ev_timer timer_w;
     ev_io accept_w;
@@ -42,39 +33,9 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_ADDRCONFIG;
-
-    ret = getaddrinfo(NULL, argv[1] /* port */, &hints, &result);
-    if (ret != 0) {
-        logmsg(LOG_ERR, "getaddrinfo: %s\n", gai_strerror(ret));
-        exit(EXIT_FAILURE);
-    }
-
-    for (rp = result; rp != NULL; rp = rp->ai_next) {
-        listen_fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-        if (listen_fd == -1)
-            continue;
-        if (bind(listen_fd, rp->ai_addr, rp->ai_addrlen) == 0)
-            break;
-        close(listen_fd);
-    }
-    freeaddrinfo(result);
-
-    if (rp == NULL) {
-        logmsg(LOG_ERR, "could not bind socket\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (listen(listen_fd, 5 /* pending conns */) == -1) {
-        logmsg(LOG_ERR, "could not listen on port %d\n", atoi(argv[1]));
-        exit(EXIT_FAILURE);
-    }
-
-    fcntl(listen_fd, F_SETFL, fcntl(listen_fd, F_GETFL, 0) | O_NONBLOCK);
-    logmsg(LOG_INFO, "listening on port %d\n", atoi(argv[1]));
+    listen_fd = net_init(argv[1]);
+    if (listen_fd == -1)
+        exit(1);
 
     LIST_INIT(&clients);
 
