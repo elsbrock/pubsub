@@ -13,6 +13,11 @@
 #define LOG_ERR     0x03
 #define LOG_DEBUG   0x01
 
+#define log_info(s, ...)     logmsg(LOG_INFO, s, __VA_ARGS__)
+#define log_warn(s, ...)     logmsg(LOG_WARN, s, __VA_ARGS__)
+#define log_err(s, ...)      logmsg(LOG_ERR, s, __VA_ARGS__)
+#define log_debug(s, ...)    logmsg(LOG_DEBUG, s, __VA_ARGS__)
+
 void logmsg(uint8_t level, char *fmt, ...);
 
 #endif
