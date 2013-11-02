@@ -85,9 +85,6 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
     struct sockaddr_in peer_addr;
     socklen_t peer_len = sizeof(peer_addr);
     int peer_sd = accept(watcher->fd, (struct sockaddr *)&peer_addr, &peer_len);
-
-        return;
-
     if (peer_sd < 0) {
         if (errno != EAGAIN && errno != EINTR && errno != EWOULDBLOCK)
             logmsg(LOG_ERR, "could not accept connection: %s\n", strerror(errno));
@@ -149,16 +146,16 @@ static void client_read_cb(EV_P_ struct ev_io *read_w, int revents) {
 
     bytes_read = read(client->fd, client->inbuf+client->inbuf_bytes,
             BUF_LEN-client->inbuf_bytes);
-
     if (bytes_read == -1) {
-        if (errno != EAGAIN)
+        if (errno != EAGAIN && errno != EWOULDBLOCK)
             logmsg(LOG_DEBUG, "read() failed: %s\n", strerror(errno));
         return;
-    } else {
+    }
+    if (bytes_read == 0) {
         logmsg(LOG_INFO, "client disconnected\n");
         num_clients--;
 
-        if ((ret = close(client->fd)) == -1)
+        if (close(client->fd) == -1)
             logmsg(LOG_ERR, "could not close socket: %s\n", strerror(errno));
 
         free_client(client);
