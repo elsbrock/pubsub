@@ -12,7 +12,7 @@
 void *smalloc(size_t size) {
     void *result = malloc(size);
     if (result == NULL) {
-        logmsg(LOG_ERR, "malloc(%d) failed\n", size);
+        logmsg(LOG_ERR, "malloc(%zu) failed\n", size);
         exit(1);
     }
     return result;
@@ -21,7 +21,7 @@ void *smalloc(size_t size) {
 void *scalloc(size_t size) {
     void *result = calloc(size, 1);
     if (result == NULL) {
-        logmsg(LOG_ERR, "malloc(%d) failed\n", size);
+        logmsg(LOG_ERR, "malloc(%zu) failed\n", size);
         exit(1);
     }
     return result;
@@ -30,7 +30,7 @@ void *scalloc(size_t size) {
 void *srealloc(void *p, size_t size) {
     void *result = realloc(p, size);
     if (result == NULL) {
-        logmsg(LOG_ERR, "realloc(%d) failed\n", size);
+        logmsg(LOG_ERR, "realloc(%zu) failed\n", size);
         exit(1);
     }
     return result;
