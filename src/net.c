@@ -28,8 +28,7 @@ static int read_packet(struct Client *client);
 static void client_read_cb(EV_P_ struct ev_io *peer_w, int revents);
 static void client_write_cb(EV_P_ struct ev_io *peer_w, int revents);
 
-int net_init(const char *port)
-{
+int net_init(const char *port) {
     struct addrinfo hints;
     struct addrinfo *result, *rp;
     int ret;
