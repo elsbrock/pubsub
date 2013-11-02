@@ -7,6 +7,7 @@
 
 void *smalloc(size_t size);
 void *scalloc(size_t size);
+void *srealloc(void *p, size_t size);
 void hexdump(char *desc, void *addr, int len);
 size_t get_rss();
 

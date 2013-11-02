@@ -27,6 +27,15 @@ void *scalloc(size_t size) {
     return result;
 }
 
+void *srealloc(void *p, size_t size) {
+    void *result = realloc(p, size);
+    if (result == NULL) {
+        logmsg(LOG_ERR, "realloc(%d) failed\n", size);
+        exit(1);
+    }
+    return result;
+}
+
 void hexdump(char *desc, void *addr, int len) {
     int i;
     unsigned char buff[17];
