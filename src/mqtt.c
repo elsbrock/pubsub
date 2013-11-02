@@ -6,6 +6,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <errno.h>
 #include <ev.h>
 
 #include "main.h"
@@ -15,12 +17,12 @@
 #include "util.h"
 
 static int create_msg(Message *msg, msg_t type, uint8_t qos, bool retain, size_t len);
-static int enqueue_msg(Client *client, Message *msg);
+static int enqueue_msg(Client *client, const Message *msg);
 
 /* Handles a CONNECT message. Assumes that the message is complete. */
 int handle_connect(Client *client, size_t msg_len) {
     assert(client->state == S_CONNECTING);
-    assert((client->inbuf[0] & 0xF0) >> 4 == 1); 
+    assert(client->inbuf[0] >> 4 == 1); 
     assert((client->inbuf[0] & 0xF) == 0); /* DUP, QoS & Retain */
 
     size_t len;
@@ -130,15 +132,16 @@ int handle_connect(Client *client, size_t msg_len) {
     if (password != NULL)
         free(password);
 
-    Message *msg = smalloc(sizeof(Message));
-    create_msg(msg, T_CONNACK, 0, false, 2 /* variable header */);
+    Message msg;
+    create_msg(&msg, T_CONNACK, 0, false, 2 /* variable header */);
 
     /* XXX: not sure if this is needed, the first byte is reserved (not used) */
-    memset(msg->payload, 0, 1);
-    msg->payload[1] = R_ACK;
+    memset(msg.payload, 0, 1);
+    msg.payload[1] = R_ACK;
 
-    enqueue_msg(client, msg);
+    enqueue_msg(client, &msg);
     client->state = S_CONNECTED;
+    free(msg.payload);
 
     return 1;
 }
@@ -157,13 +160,12 @@ static int create_msg(Message *msg, msg_t type, uint8_t qos, bool retain, size_t
     /* XXX: check payload_len */
 
     msg->type = type;
-    msg->flags = smalloc(3); /* XXX */
-    msg->flags->duplicate = false;
-    msg->flags->qos = qos;
-    msg->flags->retain = retain;
+    msg->flags.duplicate = false;
+    msg->flags.qos = qos;
+    msg->flags.retain = retain;
     msg->remaining_num = 0;
 
-    memset(msg->remaining_bytes, 0, 4);
+    memset(msg->remaining_bytes, 0, sizeof(msg->remaining_bytes));
 
     uint8_t byte;
     msg->payload_len = payload_len;
@@ -186,30 +188,39 @@ static int create_msg(Message *msg, msg_t type, uint8_t qos, bool retain, size_t
     return 1;
 }
 
-static int enqueue_msg(Client *client, Message *msg) {
-    Envelope *envelope = smalloc(sizeof(Envelope));
+static int enqueue_msg(Client *client, const Message *msg) {
+    Envelope *envelope = smalloc(sizeof(*envelope));
 
     envelope->enqueued_at = 0;
     envelope->bytes_sent = 0;
     envelope->bytes_total = msg->payload_len + msg->remaining_num + 1;
     envelope->msg = smalloc(envelope->bytes_total);
 
-    envelope->msg[0] = (msg->type | msg->flags->duplicate << 3
-        | msg->flags->qos << 1 | msg->flags->retain);
+    envelope->msg[0] = (msg->type | msg->flags.duplicate << 3
+        | msg->flags.qos << 1 | msg->flags.retain);
 
     /* XXX: well, this is rather stupid. */
     memcpy(envelope->msg+1, msg->remaining_bytes, msg->remaining_num);
     memcpy(envelope->msg+1+msg->remaining_num, msg->payload, msg->payload_len);
 
-    free(msg->payload);
-    free(msg->flags);
-    free(msg);
-
-    LIST_INSERT_HEAD(&(client->outgoing_msgs), envelope, entries);
-    client->outgoing_num++;
-
     /* XXX: if the message is small, try to avoid starting the watcher by
      * writing directly. */
+    ssize_t ret = write(client->fd, envelope->msg, envelope->bytes_total);
+
+    if (ret == -1) {
+       if (ret != EAGAIN && ret != EWOULDBLOCK)
+            return 0; /* XXX: disconnect client */
+        ret = 0;
+    }
+
+    if ((unsigned) ret == envelope->bytes_total)
+        return 1;
+
+    logmsg(LOG_DEBUG, "starting EV_WRITE\n");
+
+    envelope->bytes_sent = ret;
+    LIST_INSERT_HEAD(&(client->outgoing_msgs), envelope, entries);
+    client->outgoing_num++;
 
     if (client->outgoing_num == 1)
         ev_io_start(loop, client->write_w);
@@ -219,12 +230,10 @@ static int enqueue_msg(Client *client, Message *msg) {
 
 void free_client(Client *client) {
     LIST_REMOVE(client, entries);
-    if (client->identifier != NULL)
-        free(client->identifier);
-    if (client->will_topic != NULL)
-        free(client->will_topic);
-    if (client->will_msg != NULL)
-        free(client->will_msg);
+
+    free(client->identifier);
+    free(client->will_topic);
+    free(client->will_msg);
     free(client->inbuf);
 
     Envelope *envelope;

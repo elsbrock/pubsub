@@ -28,9 +28,9 @@ unsigned int num_clients = 0;
 int listen_fd;
 
 int main(int argc, char *argv[]) {
-    static struct addrinfo hints;
-    static struct addrinfo *result, *rp;
-    static int ret;
+    struct addrinfo hints;
+    struct addrinfo *result, *rp;
+    int ret;
     loop = EV_DEFAULT;
     ev_timer timer_w;
     ev_io accept_w;

@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <netdb.h>
+#include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <ev.h>
 
@@ -19,7 +21,7 @@ void sig_cb(EV_P_ ev_signal *signal_w, int revents) {
     logmsg(LOG_INFO, "received SIGINT, shutting down\n");
 
     if ((ret = close(listen_fd)) != 0)
-        logmsg(LOG_ERR, "could not close socket: %s\n", gai_strerror(ret));
+        logmsg(LOG_ERR, "could not close socket: %s\n", strerror(errno));
 
     /* disconnect all clients */
     LIST_FOREACH(client, &clients, entries) {

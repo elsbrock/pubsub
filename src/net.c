@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <string.h>
 #include <ev.h>
 #include <assert.h>
 
@@ -37,14 +38,15 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
         return;
     }
 
-    static struct sockaddr_in peer_addr;
-    static socklen_t peer_len = sizeof(peer_addr);
+    struct sockaddr_in peer_addr;
+    socklen_t peer_len = sizeof(peer_addr);
     int peer_sd = accept(watcher->fd, (struct sockaddr *)&peer_addr, &peer_len);
-    if (peer_sd == EAGAIN || peer_sd == EINTR || peer_sd == EWOULDBLOCK)
+
         return;
 
     if (peer_sd < 0) {
-        logmsg(LOG_ERR, "could not accept connection\n");
+        if (peer_sd != EAGAIN || peer_sd != EINTR || peer_sd != EWOULDBLOCK)
+            logmsg(LOG_ERR, "could not accept connection\n");
         return;
     }
 
@@ -61,7 +63,7 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
 
     client->fd = peer_sd;
     client->state = S_CONNECTING;
-    client->inbuf = malloc(sizeof(char) * BUF_LEN);
+    client->inbuf = smalloc(sizeof(char) * BUF_LEN);
     client->inbuf_bytes = 0;
 
     client->identifier = NULL;
@@ -71,8 +73,8 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
     client->outgoing_num = 0;
     LIST_INIT(&(client->outgoing_msgs));
 
-    client->read_w  = (struct ev_io*) smalloc(sizeof(struct ev_io));
-    client->write_w = (struct ev_io*) smalloc(sizeof(struct ev_io));
+    client->read_w  = smalloc(sizeof(struct ev_io));
+    client->write_w = smalloc(sizeof(struct ev_io));
 
     ev_io_init(client->read_w, client_read_cb, peer_sd, EV_READ);
     ev_io_start(EV_A_ client->read_w);
@@ -87,35 +89,35 @@ static void client_read_cb(EV_P_ struct ev_io *read_w, int revents) {
     if ((revents & EV_READ) == 0)
         return;
 
-    Client *client;
     ssize_t bytes_read;
-    int ret;
+    int ret = 0;
 
     /* look up client context */
     /* XXX: use hashtable? */
+    Client *client = NULL;
     LIST_FOREACH(client, &clients, entries) {
-        if (client->fd == client->fd)
+        if (client->fd == read_w->fd)
             break;
     }
 
     assert(client != NULL);
     assert(client->read_w->fd == client->fd);
 
-    if ((bytes_read = read(client->fd, client->inbuf+client->inbuf_bytes,
-                    BUF_LEN-client->inbuf_bytes)) == 0) {
+    bytes_read = read(client->fd, client->inbuf+client->inbuf_bytes,
+            BUF_LEN-client->inbuf_bytes);
+
+    if (bytes_read == -1) {
+        if (errno != EAGAIN)
+            logmsg(LOG_DEBUG, "read() failed: %s\n", gai_strerror(bytes_read));
+        return;
+    } else {
         logmsg(LOG_INFO, "client disconnected\n");
         num_clients--;
 
-        if (bytes_read == -1 && errno == EAGAIN)
-            return;
-
-        if ((ret = close(client->fd)) != 0)
-            logmsg(LOG_ERR, "could not close socket: %s\n", gai_strerror(ret));
+        if ((ret = close(client->fd)) == -1)
+            logmsg(LOG_ERR, "could not close socket\n", strerror(ret));
 
         free_client(client);
-        return;
-    } else if (bytes_read == -1) {
-        logmsg(LOG_DEBUG, "read() failed: %s\n", gai_strerror(bytes_read));
         return;
     }
 

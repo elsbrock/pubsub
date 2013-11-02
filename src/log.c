@@ -28,18 +28,12 @@ void logmsg(const uint8_t level, char *fmt, ...) {
 }
 
 static void _logmsg(const uint8_t level, const bool print, const char *fmt, va_list args) {
-    static char message[LOGBUF];
-    static struct tm result;
-    static time_t t;
-    static struct tm *tmp;
-    static size_t len;
     FILE *stream = stdout;
-    static char *levelstr;
-    size_t levelstrlen;
 
     if ((level & log_level) != log_level)
         return;
 
+    static char *levelstr;
     if (0) {
     } else if ((level & LOG_INFO) == LOG_INFO) {
         levelstr = "INFO  - ";
@@ -54,13 +48,17 @@ static void _logmsg(const uint8_t level, const bool print, const char *fmt, va_l
         stream = stderr;
     }
 
-    levelstrlen = strlen(levelstr);
+    size_t levelstrlen = strlen(levelstr);
 
-    t = time(NULL);
-    tmp = localtime_r(&t, &result);
-    len = strftime(message, sizeof(message), "%x %X ", tmp);
+    time_t t = time(NULL);
+    struct tm result;
+    struct tm *tmp = localtime_r(&t, &result);
+
+    char message[LOGBUF];
+    size_t len = strftime(message, sizeof(message), "%x %X ", tmp);
+
     assert(LOGBUF > len + levelstrlen);
-    memcpy(message+len, levelstr, levelstrlen);
+    memcpy(message+len, levelstr, levelstrlen+1);
 
     fprintf(stream, "%s", message);
     vfprintf(stream, fmt, args);

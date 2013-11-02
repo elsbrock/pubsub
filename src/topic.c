@@ -6,8 +6,11 @@
 
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "data.h"
+#include "util.h"
+#include "log.h"
 
 /* Given a fully-qualified topic name, (try to) walk from the root of the topic
  * tree into this topic. If the topic cannot be found and it is not going to be
