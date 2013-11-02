@@ -247,7 +247,6 @@ static int read_packet(struct Client *client) {
     assert(client->inbuf_bytes >= 2);
 
     size_t msg_length = 0;
-    bool msg_complete = false;
 
     /* Variable length encoding: seven bits encode the remaining length,
      * the eigth bit is the continuation indicator. The maximum number of
@@ -258,14 +257,12 @@ static int read_packet(struct Client *client) {
     unsigned int thisbyte;
     do {
         thisbyte = client->inbuf[msg_index++];
+        log_debug("thisbyte is %d\n", thisbyte);
         msg_length = (thisbyte & 0x7F) * multiplier;
         multiplier *= 128;
-    } while (msg_index < client->inbuf_bytes && (thisbyte & 0x7F) != 0);
+    } while (msg_index <= 4 && (client->inbuf[msg_index] & 0x7F) != 0);
 
     if (client->inbuf_bytes-2 /* header */ == msg_length)
-        msg_complete = true;
-
-    if (msg_complete)
         logmsg(LOG_DEBUG, "message is complete (%d bytes)\n", client->inbuf_bytes);
     else {
         /* XXX: the buffer is pretty small (4096 bytes), so messages with
@@ -276,7 +273,6 @@ static int read_packet(struct Client *client) {
         return 0; /* try again later */
     }
 
-    int ret = 0;
     msg_t type = (client->inbuf[0]) & 0xF0;
     if (client->state == S_CONNECTING && type != T_CONNECT) {
         /* XXX: disconnect client */
@@ -284,6 +280,7 @@ static int read_packet(struct Client *client) {
         return 0;
     }
 
+    int ret = 0;
     switch(type) {
         case T_CONNECT:
             logmsg(LOG_DEBUG, "CONNECT from client\n");
