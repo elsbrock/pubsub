@@ -44,7 +44,7 @@ struct Message {
         bool duplicate;
         uint8_t qos;
         bool retain;
-    } *flags;
+    } flags;
 
     /* The number of bytes the remaining length occupies. */
     uint8_t remaining_num;

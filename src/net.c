@@ -45,8 +45,8 @@ void accept_cb(EV_P_ struct ev_io *watcher, int revents) {
         return;
 
     if (peer_sd < 0) {
-        if (peer_sd != EAGAIN || peer_sd != EINTR || peer_sd != EWOULDBLOCK)
-            logmsg(LOG_ERR, "could not accept connection\n");
+        if (errno != EAGAIN && errno != EINTR && errno != EWOULDBLOCK)
+            logmsg(LOG_ERR, "could not accept connection: %s\n", strerror(errno));
         return;
     }
 
@@ -108,14 +108,14 @@ static void client_read_cb(EV_P_ struct ev_io *read_w, int revents) {
 
     if (bytes_read == -1) {
         if (errno != EAGAIN)
-            logmsg(LOG_DEBUG, "read() failed: %s\n", gai_strerror(bytes_read));
+            logmsg(LOG_DEBUG, "read() failed: %s\n", strerror(errno));
         return;
     } else {
         logmsg(LOG_INFO, "client disconnected\n");
         num_clients--;
 
         if ((ret = close(client->fd)) == -1)
-            logmsg(LOG_ERR, "could not close socket\n", strerror(ret));
+            logmsg(LOG_ERR, "could not close socket: %s\n", strerror(errno));
 
         free_client(client);
         return;
@@ -164,12 +164,13 @@ static void client_write_cb(EV_P_ struct ev_io *write_w, int revents) {
                 envelope->bytes_total-envelope->bytes_sent);
 
         if (ret < 0) {
-            if (ret == EAGAIN || ret == EWOULDBLOCK || ret == EINTR)
+            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
                 break;
             /* else {
                 disconnect_client();
                 return;
             */
+            return;
         }
 
         envelope->bytes_sent += ret;
