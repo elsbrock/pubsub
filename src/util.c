@@ -36,10 +36,10 @@ void *srealloc(void *p, size_t size) {
     return result;
 }
 
-void hexdump(char *desc, void *addr, int len) {
-    int i;
+void hexdump(const char *desc, const void *addr, size_t len) {
+    size_t i;
     unsigned char buff[17];
-    unsigned char *pc = addr;
+    const unsigned char *pc = addr;
 
     if (desc != NULL)
         printf ("%s:\n", desc);
@@ -48,7 +48,7 @@ void hexdump(char *desc, void *addr, int len) {
         if ((i % 16) == 0) {
             if (i != 0)
                 printf ("  %s\n", buff);
-            printf ("  %04x ", i);
+            printf ("  %04zx ", i);
         }
 
         printf (" %02x", pc[i]);

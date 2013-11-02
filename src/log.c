@@ -19,15 +19,7 @@
 static uint8_t log_level = LOG_DEBUG;
 static bool verbose = false;
 
-static void _logmsg(const uint8_t level, const bool print, const char *fmt, va_list args);
-void logmsg(const uint8_t level, char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    _logmsg(level, verbose, fmt, args);
-    va_end(args);
-}
-
-static void _logmsg(const uint8_t level, const bool print, const char *fmt, va_list args) {
+static void _logmsg(uint8_t level, bool print, const char *fmt, va_list args) {
     FILE *stream = stdout;
 
     if ((level & log_level) != log_level)
@@ -62,4 +54,11 @@ static void _logmsg(const uint8_t level, const bool print, const char *fmt, va_l
 
     fprintf(stream, "%s", message);
     vfprintf(stream, fmt, args);
+}
+
+void logmsg(uint8_t level, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    _logmsg(level, verbose, fmt, args);
+    va_end(args);
 }

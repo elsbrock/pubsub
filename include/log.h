@@ -18,6 +18,6 @@
 #define log_err(s, ...)      logmsg(LOG_ERR, s, __VA_ARGS__)
 #define log_debug(s, ...)    logmsg(LOG_DEBUG, s, __VA_ARGS__)
 
-void logmsg(uint8_t level, char *fmt, ...);
+void logmsg(uint8_t level, const char *fmt, ...);
 
 #endif
